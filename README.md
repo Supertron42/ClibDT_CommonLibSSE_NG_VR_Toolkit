@@ -1,4 +1,4 @@
-# 🛠️ Supertron 2025 – SKSE Plugin Toolkit
+# 🛠️ ClibDT - CommonLibSSE-NG Developers Toolkit
 
 A complete Windows-based developer toolkit for creating, building, and managing **Skyrim SKSE plugin projects** using [CommonLibSSE-NG] with [xmake].
 All requirements are either done for you, or installed step-by-step with clear instructions.

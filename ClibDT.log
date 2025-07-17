@@ -1,0 +1,31 @@
+[LOGGING] Output is being saved to: C:\ClibDT\projects\ClibDT\ClibDT.log
+
+[36m       ██████╗██╗     ██╗██████╗     ██████╗ ████████╗[0m
+[36m      ██╔════╝██║     ██║██╔══██╗    ██╔══██╗╚══██╔══╝[0m
+[36m      ██║     ██║     ██║██████╔╝    ██║  ██║   ██║   [0m
+[36m      ██║     ██║     ██║██╔══██╗    ██║  ██║   ██║   [0m
+[36m       ██████╗███████╗██║██████╔╝    ██████╔╝   ██║   [0m
+[36m       ╚═════╝╚══════╝╚═╝╚═════╝     ╚═════╝    ╚═╝   [0m
+[32m             CommonLibSSE-NG Developers Toolkit [0m
+
+[94m           Supertron 2025 © -- v4.0.1 (up to date)[0m
+
+1. Set Environment Variables (required)
+2. Install VS (or Build Tools), Git, Xmake, GitHub Desktop
+3. Create a New Project
+4. Update Project Dependencies
+5. Build Project (Debug or Release)
+6. Regenerate xmake.lua
+7. Git Stage & Commit Project
+8. Detach Git (Remove history)
+9. Smart Backup Dev Folder
+10. Refresh Existing Project
+11. Clear Environment Variables
+0. Exit
+
+Enter P to open Nexus Mods page
+
+[90mEnter M to return to this menu[0m
+[32mLast Backup: 2025-07-17 20:42:03[0m
+
+Choose an option: 
