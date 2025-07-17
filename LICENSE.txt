@@ -1,8 +1,8 @@
-# ClibDT Source License v1.0
+ClibDT Source License v1.0
 
-## Friendly Notice
-
-This project was created to support the development of SKSE mods, and I sincerely welcome any contributions —  
+Friendly Notice:
+----------------
+This project was created to support the development of SKSE mods, and I sincerely welcome any contributions — 
 as long as they build upon the project rather than supersede it.
 
 This license defines reasonable boundaries, but it is not meant to be enforced harshly.  
@@ -15,36 +15,32 @@ This toolkit includes or helps install third-party tools and libraries.
 You must respect the original licenses of those components.  
 Each bundled or downloaded tool retains its own license and ownership — this license does not override them.
 
----
 
-© 2025 Supertron
+Copyright (c) 2025 Supertron
 
 Permission is hereby granted to any individual to view, study, and make personal or non-commercial use of this software and its source code, subject to the following conditions:
 
-### 1. No Redistribution Without Permission
-Redistribution of this software — whether original, modified, or in binary form — is not permitted without the author's explicit written consent, except under the fallback condition in Section 3.
+1. No Redistribution Without Permission  
+   Redistribution of this software — whether original, modified, or in binary form — is not permitted without the author's explicit written consent, except under the fallback condition in Section 3.
 
-### 2. Partial Code Use Permitted
-You may extract and reuse portions of this code in your own projects, provided proper attribution is given (see Section 4).
+2. Partial Code Use Permitted  
+   You may extract and reuse portions of this code in your own projects, provided proper attribution is given (see Section 4).
 
-### 3. Fallback License Activation for Abandonment
-If this software becomes critically broken (i.e., it fails to function or build correctly) and the author does not respond with a fix or public communication within 3 consecutive months from the date of a reported issue, redistribution of fixed versions is permitted under the following conditions:
+3. Fallback License Activation for Abandonment  
+   If this software becomes critically broken (i.e., it fails to function or build correctly) and the author does not respond with a fix or public communication within 3 consecutive months from the date of a reported issue, redistribution of fixed versions is permitted under the following conditions:
+   - The fix must address a major breakage or functionality failure
+   - The redistributed version must include attribution and changelog
+   - The author retains the right to claim and re-release your fixed version under the same or different license, with credit to you but no financial obligation
 
-- The fix must address a major breakage or functionality failure  
-- The redistributed version must include attribution and changelog  
-- The author retains the right to claim and re-release your fixed version under the same or different license, with credit to you but no financial obligation
+4. Attribution  
+   Any public usage, fork, patch, or significant derivative must clearly credit "Supertron" as the original author and developer.  
+   Fix contributors will be credited in changelogs or documentation if their contribution is integrated.
 
-### 4. Attribution
-Any public usage, fork, patch, or significant derivative must clearly credit "Supertron" as the original author and developer.  
-Fix contributors will be credited in changelogs or documentation if their contribution is integrated.
+5. Commercial Use  
+   Commercial usage is not permitted without a separate licensing agreement.
 
-### 5. Commercial Use
-Commercial usage is not permitted without a separate licensing agreement.
-
-### 6. Disclaimer
-This software is provided “as-is” without warranty of any kind. The author is not liable for any damages resulting from its use.
-
----
+6. Disclaimer  
+   This software is provided “as-is” without warranty of any kind. The author is not liable for any damages resulting from its use.
 
 For permission requests or commercial licensing, contact the author via NexusMods:  
-[https://next.nexusmods.com/profile/Supertron](https://next.nexusmods.com/profile/Supertron)
+https://next.nexusmods.com/profile/Supertron
