@@ -189,7 +189,7 @@ Open an issue on GitHub or comment/message me via [NexusMods](https://www.nexusm
 
 ## 📜 License
 
-MIT © 2025 Supertron  
+ClibDT Source License v1.0 © 2025 Supertron  
 All bundled components retain their own licenses (e.g., CommonLibSSE-NG, Xmake)
 
 ---
