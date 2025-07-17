@@ -20,6 +20,21 @@ If you are interested in making your own SKSE Skyrim mods, you're in the right p
 
 ---
 
+## 📩 Download Executable
+
+- Install from `https://www.nexusmods.com/skyrimspecialedition/mods/154240`
+
+---
+
+## 📩 How To Run with Python
+Do this if you don't want to use the Windows executable. 
+
+- Install Python
+- run `install packages.bat`
+- run ClibDT.py
+
+---
+
 ## 🧰 Requirements
 
 - Windows 10 or later
