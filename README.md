@@ -54,8 +54,8 @@ Do this if you don't want to use the Windows executable.
 ### **1. Set Environment Variables (required)**
 Guides you through setting up the key folders and paths used by the toolkit:
 - Where your dev projects live
-- Where your Skyrim game and mods are
-- (Optional) Path to GitHub Desktop
+- Where your Skyrim game folder (or SKSE) lives
+- Where you want to create your mod to
 
 **You must do this first!**
 
@@ -200,33 +200,33 @@ This toolkit bundles or assists with the installation of several third-party too
 
 - **7-Zip**
   - [https://www.7-zip.org/](https://www.7-zip.org/)
-  - © Igor Pavlov
+  - Igor Pavlov
   - Licensed under the GNU LGPL v2.1
   - See LICENSE.txt in the 7-Zip distribution or [7-Zip License](https://www.7-zip.org/license.txt)
 
 - **Xmake**
   - [https://xmake.io/](https://xmake.io/)
-  - © ruki (xmake authors)
+  - ruki (xmake authors)
   - Licensed under the Apache License 2.0
 
 - **Git for Windows**
   - [https://gitforwindows.org/](https://gitforwindows.org/)
-  - © The Git Development Community
+  - The Git Development Community
   - Licensed under GPL v2
 
 - **GitHub Desktop**
   - [https://desktop.github.com/](https://desktop.github.com/)
-  - © GitHub, Inc.
+  - GitHub, Inc.
   - Licensed under MIT License
 
 - **Ninja Build System**
   - [https://ninja-build.org/](https://ninja-build.org/)
-  - © Evan Martin
+  - Evan Martin
   - Licensed under Apache License 2.0
 
 - **CommonLibSSE-NG**
-  - [https://github.com/CharmedBaryon/CommonLibSSE-NG](https://github.com/CharmedBaryon/CommonLibSSE-NG)
-  - © Charmed Baryon and contributors
+  - [https://github.com/alandtse/CommonLibVR)
+  - Ryan McKenzie and contributors
   - Licensed under MIT License
 
 If you use this toolkit, please respect the licenses of all bundled and third-party tools. See their respective websites and license files for more information.
