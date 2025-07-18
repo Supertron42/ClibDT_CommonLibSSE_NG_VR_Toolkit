@@ -9,7 +9,7 @@ If you are interested in making your own SKSE Skyrim mods, you're in the right p
 
 ---
 
-## 📦 What This Tool Does
+## What This Tool Does
 
 - Installs everything you need to start modding Skyrim with SKSE plugins
 - Helps you create projects with proper structure and `xmake.lua`
