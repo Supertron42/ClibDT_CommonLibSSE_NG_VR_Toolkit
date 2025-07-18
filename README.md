@@ -20,13 +20,13 @@ If you are interested in making your own SKSE Skyrim mods, you're in the right p
 
 ---
 
-## 📩 Download Executable
+## Download Executable
 
 - Install from `https://www.nexusmods.com/skyrimspecialedition/mods/154240`
 
 ---
 
-## 📩 How To Run with Python
+## How To Run with Python
 Do this if you don't want to use the Windows executable. 
 
 - Install Python
@@ -35,13 +35,13 @@ Do this if you don't want to use the Windows executable.
 
 ---
 
-## 🧰 Requirements
+## Requirements
 
 - Windows 10 or later
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 1. Run `ClibDT.exe`
 2. Follow the menu-driven setup
@@ -49,7 +49,7 @@ Do this if you don't want to use the Windows executable.
 
 ---
 
-## 📖 Menu Options Explained
+## Menu Options Explained
 
 ### **1. Set Environment Variables (required)**
 Guides you through setting up the key folders and paths used by the toolkit:
@@ -150,7 +150,7 @@ Closes the program.
 
 ---
 
-## 🔗 Extra Features
+##  Extra Features
 
 - Press `P` at any time to open the NexusMods page:
   [Supertron Nexus Page](https://www.nexusmods.com/skyrimspecialedition/mods/154240)
@@ -173,28 +173,28 @@ MyPlugin/
 
 ---
 
-## 🛠 Build Tips
+## Build Tips
 
 - To build your plugin, just select option 5 from the menu.
 - Use SE, AE, or VR build targets — mix/match is supported safely..
 
 ---
 
-## 🧃 Support
+## Support
 
 Found a bug or have a suggestion? 
 Open an issue on GitHub or comment/message me via [NexusMods](https://www.nexusmods.com/skyrimspecialedition/mods/154240).
 
 ---
 
-## 📜 License
+## License
 
 ClibDT Source License v1.0 © 2025 Supertron  
 All bundled components retain their own licenses (e.g., CommonLibSSE-NG, Xmake)
 
 ---
 
-## 📝 Credits & Third-Party Licenses
+## Credits & Third-Party Licenses
 
 This toolkit bundles or assists with the installation of several third-party tools. All trademarks and copyrights are the property of their respective owners.
 
