@@ -1,1 +1,1 @@
-commit helper
+This file helps ClibDT find ClibDT in the projects folder for pushing to GitHub
