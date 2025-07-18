@@ -59,7 +59,6 @@ Guides you through setting up the key folders and paths used by the toolkit:
 
 **You must do this first!**
 
----
 
 ### **2. Install VS (or Build Tools), Git, Xmake, GitHub Desktop, Ninja**
 Downloads and installs all the developer tools you need:
@@ -70,7 +69,6 @@ Downloads and installs all the developer tools you need:
 
 You can skip any tool you already have previously installed.
 
----
 
 ### **3. Create a New Project**
 Creates a ready-to-build SKSE plugin project:
@@ -78,7 +76,6 @@ Creates a ready-to-build SKSE plugin project:
 - Sets up folders and a starter `xmake.lua`
 - Supports SE, AE, and VR builds
 
----
 
 ### **4. Update Project Dependencies**
 Keeps your project up to date:
@@ -87,7 +84,6 @@ Keeps your project up to date:
 
 Use this after editing `xmake.lua` or to upgrade libraries.
 
----
 
 ### **5. Build Project (Debug or Release)**
 Compiles your plugin using Xmake:
@@ -95,7 +91,6 @@ Compiles your plugin using Xmake:
 - Detects runtime settings (SE, AE, VR)
 - Shows build progress and output
 
----
 
 ### **6. Regenerate xmake.lua**
 Regenerates your project’s `xmake.lua`:
@@ -104,7 +99,6 @@ Regenerates your project’s `xmake.lua`:
 
 Use if you want to reset or update your build script.
 
----
 
 ### **7. Git Stage & Commit Project**
 Helps you manage version control:
@@ -113,21 +107,18 @@ Helps you manage version control:
 - Prompts for a commit message
 - Optionally launches GitHub Desktop
 
----
 
 ### **8. Detach Git (Remove History)**
 Removes the `.git` folder from your project:
 - Permanently deletes all Git commit history and tracking
 - Useful if you cloned a template and want to start fresh
 
----
 
 ### **9. Smart Backup Dev Folder**
 Creates a safe backup of your entire dev root:
 - Backs up all projects and settings
 - Useful before major changes or upgrades
 
----
 
 ### **10. Refresh Existing Project**
 Refreshes your project folder:
@@ -135,7 +126,6 @@ Refreshes your project folder:
 - Ensures your project structure is up to date
 - Useful if you’ve made manual changes or want to reset the workspace
 
----
 
 ### **11. Clear Environment Variables**
 Removes all ClibDT-related environment variables for this session:
@@ -143,7 +133,6 @@ Removes all ClibDT-related environment variables for this session:
 - Only affects the current session (does not change system-wide settings)
 - Prompts for confirmation and lists all variables to be removed
 
----
 
 ### **0. Exit**
 Closes the program.
