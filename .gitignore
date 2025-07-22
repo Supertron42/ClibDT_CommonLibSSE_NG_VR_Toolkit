@@ -1,2 +1,13 @@
-ClibDT_source.zip
-ClibDT.log
+# Ignore everything by default
+/*
+
+# Ignore Python compiled files
+*.pyc
+__pycache__/
+
+# But do NOT ignore these (track them):
+!modules/
+!ClibDT.py
+!install packages.bat
+!compile.bat
+!.gitignore

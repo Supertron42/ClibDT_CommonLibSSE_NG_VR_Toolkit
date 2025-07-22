@@ -32,7 +32,8 @@ def download_with_progress(url, dest_path):
 #----------env----------
 def set_env_variable(key, value):
     try:
-        subprocess.run(["setx", key, value], check=True)
+        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+        subprocess.run(["setx", key, value], check=True, creationflags=creationflags)
         cprint(f"[OK] Set environment variable {key} = {value}", Fore.GREEN)
     except Exception as e:
         cprint(f"[ERROR] Failed to set environment variable {key}: {e}", Fore.RED)
@@ -126,6 +127,9 @@ def detect_msvc() -> tuple[bool, dict | None]:
         cl_dir, _ = result
         env = os.environ.copy()
         env["PATH"] = str(cl_dir) + os.pathsep + env["PATH"]
+        # Set environment variable for this session and permanently
+        os.environ["XSE_MSVCTOOLS_ROOT"] = str(tools_path)
+        set_env_variable("XSE_MSVCTOOLS_ROOT", str(tools_path))
         cprint(f"[OK] Found cl.exe in XSE_MSVCTOOLS_ROOT and added to PATH:\n  {cl_dir}", Fore.GREEN)
         return True, env
 
@@ -164,6 +168,9 @@ def detect_msvc() -> tuple[bool, dict | None]:
                 cl_dir, _ = result
                 env = os.environ.copy()
                 env["PATH"] = str(cl_dir) + os.pathsep + env["PATH"]
+                # Set environment variable for this session and permanently
+                os.environ["XSE_MSVCTOOLS_ROOT"] = str(path)
+                set_env_variable("XSE_MSVCTOOLS_ROOT", str(path))
                 cprint(f"[OK] Found cl.exe in {path.name} and added to PATH:\n  {cl_dir}", Fore.GREEN)
                 return True, env
 
@@ -195,6 +202,9 @@ def detect_msvc() -> tuple[bool, dict | None]:
                 cl_dir, _ = result
                 env = os.environ.copy()
                 env["PATH"] = str(cl_dir) + os.pathsep + env["PATH"]
+                # Set environment variable for this session and permanently
+                os.environ["XSE_MSVCTOOLS_ROOT"] = str(vs_path)
+                set_env_variable("XSE_MSVCTOOLS_ROOT", str(vs_path))
                 cprint(f"[OK] MSVC found via vswhere and added to PATH:\n  {cl_dir}", Fore.GREEN)
                 return True, env
     except Exception as e:

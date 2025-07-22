@@ -7,7 +7,7 @@ def generate_xmake_lua(output_path, project_name, version, author, description):
     """
     content = f'''-- Auto-generated xmake.lua
 
-set_xmakever("2.8.2")
+set_xmakever("3.0.1")
 includes("lib/commonlibsse-ng")
 
 set_project("{project_name}")

@@ -26,7 +26,9 @@ def restart_clibdt(extra_args=None):
         args += extra_args
 
     cprint(f"[INFO] Relaunching ClibDT.py...", Fore.CYAN)
-    subprocess.Popen(args, close_fds=True)
+    # Use CREATE_NO_WINDOW to prevent terminal popup
+    creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+    subprocess.Popen(args, close_fds=True, creationflags=creationflags)
 
     # Optional: exit current script if desired
     sys.exit(0)

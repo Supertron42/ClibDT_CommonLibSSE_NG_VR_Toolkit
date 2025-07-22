@@ -1,341 +1,815 @@
 import os
 import subprocess
 import sys
-import tempfile
-import textwrap
 import shutil
-from typing import Optional
 from pathlib import Path
-from colorama import Fore, Style
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QWizard, QWizardPage, QSizePolicy, QDialog)
+from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication
 
 
-def restart_clibdt():
-    exe = sys.executable
-    args = sys.argv
-    subprocess.Popen([exe] + args, creationflags=subprocess.CREATE_NEW_CONSOLE)
-    os._exit(0)
 
-def download_with_progress(url: str, dest_path: Path, fallback_url: Optional[str] = None) -> bool:
-    import urllib.request
-
+def setx(var, value, parent=None, terminal=None, show_popup=False):
+    import subprocess
     try:
-        with urllib.request.urlopen(url) as response, open(dest_path, 'wb') as out_file:
-            file_size = int(response.info().get("Content-Length", -1))
-            downloaded = 0
-            block_size = 8192
-
-            while True:
-                buffer = response.read(block_size)
-                if not buffer:
-                    break
-                downloaded += len(buffer)
-                out_file.write(buffer)
-                percent = downloaded * 100 // file_size if file_size > 0 else 0
-                print(f"\r[DL] {percent:3d}% - {dest_path.name}", end="", flush=True)
-        print()
+        # Set system-wide environment variable
+        result = subprocess.run(["setx", var, value], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            if show_popup and parent:
+                QMessageBox.critical(parent, "Set Environment Variable Failed", f"Failed to set {var}: {result.stderr.strip() or 'Unknown error'}")
+            raise Exception(result.stderr.strip() or "Unknown error")
+        
+        # Update current process environment immediately
+        os.environ[var] = value
+        
+        # Broadcast environment change to other processes on Windows
+        if sys.platform.startswith("win"):
+            try:
+                import ctypes
+                from ctypes import wintypes
+                
+                # Define Windows API constants
+                HWND_BROADCAST = 0xFFFF
+                WM_SETTINGCHANGE = 0x001A
+                SMTO_ABORTIFHUNG = 0x0002
+                
+                # Send broadcast message to notify other processes
+                result = ctypes.windll.user32.SendMessageTimeoutW(
+                    HWND_BROADCAST, WM_SETTINGCHANGE, 0, "Environment",
+                    SMTO_ABORTIFHUNG, 5000, ctypes.byref(wintypes.DWORD())
+                )
+            except Exception:
+                # Silently fail if broadcasting fails - environment is still set
+                pass
+        
+        # Copy 7zip if needed
+        if var == "XSE_CLIBDT_DEVROOT":
+            new_dev_root = Path(value)
+            new_7zip = new_dev_root / "tools" / "7zip"
+            current_dir = Path(__file__).parent.parent.resolve()
+            src_7zip = current_dir / "tools" / "7zip"
+            if src_7zip.exists() and not new_7zip.exists():
+                try:
+                    shutil.copytree(src_7zip, new_7zip)
+                except Exception as e:
+                    if show_popup and parent:
+                        QMessageBox.warning(parent, "7-Zip Copy Failed", f"Failed to copy 7-Zip to new dev root: {e}")
+            
+            # Set game/mods folder defaults if not set
+            game_env = os.getenv("XSE_TES5_GAME_PATH")
+            if not game_env or not game_env.strip():
+                game_path = str(new_dev_root / "tools" / "SKSE")
+                creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+                subprocess.run(["setx", "XSE_TES5_GAME_PATH", game_path], shell=True, creationflags=creationflags)
+                os.environ["XSE_TES5_GAME_PATH"] = game_path
+                if show_popup and parent:
+                    QMessageBox.information(parent, "Default Game Folder", f"Game folder set to: {game_path}")
+            
+            mods_env = os.getenv("XSE_TES5_MODS_PATH")
+            if not mods_env or not mods_env.strip():
+                mods_path = str(new_dev_root / "output")
+                creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+                subprocess.run(["setx", "XSE_TES5_MODS_PATH", mods_path], shell=True, creationflags=creationflags)
+                os.environ["XSE_TES5_MODS_PATH"] = mods_path
+                if show_popup and parent:
+                    QMessageBox.information(parent, "Default Mods Folder", f"Mods folder set to: {mods_path}")
+        
         return True
     except Exception as e:
-        cprint(f"[ERROR] Download failed: {e}", Fore.RED)
-        if fallback_url:
-            cprint(f"[INFO] Try downloading manually from: {fallback_url}", Fore.YELLOW)
+        if show_popup and parent:
+            QMessageBox.critical(parent, "Set Environment Variable Failed", f"Failed to set {var}: {e}")
         return False
 
+class EnvVarsPanel(QWidget):
+    def __init__(self, parent=None, status_callback=None, theme_manager=None):
+        super().__init__(parent)
+        self.status_callback = status_callback
+        self.theme_manager = theme_manager
+        
+        # Connect to theme changes if theme manager is provided
+        if self.theme_manager:
+            self.theme_manager.theme_changed.connect(self.apply_theme)
+        
+        # Main layout with proper spacing (following create_project.py pattern)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(8)
+        
+        # Title with divider line following create_project.py pattern
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)  # Match create_project.py spacing
+        title_row.setContentsMargins(0, 0, 0, 0)
 
-def cprint(msg, color=Fore.RESET):
-    print(color + msg + Style.RESET_ALL)
+        title = QLabel("Environment Variables")
+        title.setObjectName("main_title")
+        title_row.addWidget(title)
 
-def show_current_env_summary():
-    cprint("Current Environment Settings:", Fore.MAGENTA)
-    vars = [
-        "XSE_CLIBDT_DEVROOT",
-        "XSE_TES5_GAME_PATH",
-        "XSE_TES5_MODS_PATH"
-    ]
-    for v in vars:
-        val = os.getenv(v)
-        if val:
-            cprint(f"  {v} = {val}", Fore.GREEN)
-        else:
-            cprint(f"  {v} = (NOT SET)", Fore.RED)
-    print()
+        # Add divider line
+        title_divider = QLabel()
+        title_divider.setObjectName("title_divider")
+        title_divider.setFixedHeight(2)  # 2px for main title
+        title_divider.setMinimumWidth(120)
+        title_row.addWidget(title_divider)
 
-def setx(var, value):
-    subprocess.call(["setx", var, value], shell=True, stdout=subprocess.DEVNULL)
-    try:
-        updated = subprocess.check_output(
-            ["reg", "query", "HKCU\\Environment", "/v", var],
-            text=True
-        )
-        for line in updated.splitlines():
-            if var in line:
-                os.environ[var] = line.split()[-1]
-                break
-    except Exception as e:
-        cprint(f"[WARN] Could not patch env var '{var}' into current session: {e}", Fore.YELLOW)
+        title_row.addStretch()  # Push divider to the left
+        layout.addLayout(title_row)
+        
+        # Description
+        desc = QLabel("Configure development environment paths and settings.")
+        desc.setObjectName("section_desc")
+        layout.addWidget(desc)
+        
+        # Environment Variables section
+        env_section = QWidget()
+        env_section.setObjectName("env_section")
+        env_layout = QVBoxLayout(env_section)
+        env_layout.setContentsMargins(0, 0, 0, 8)
+        env_layout.setSpacing(8)
 
-def get_7zip_exe(dev_root: Path) -> Optional[Path]:
-    #----------1. Check in dev_root/tools/7zip----------
-    local_path = dev_root / "tools" / "7zip" / "7z.exe"
-    if local_path.exists():
-        return local_path
-
-    #----------2. Check in PATH----------
-    from shutil import which
-    found = which("7z")
-    if found:
-        return Path(found)
-
-    #----------3. Check common install paths----------
-    common_paths = [
-        Path("C:/Program Files/7-Zip/7z.exe"),
-        Path("C:/Program Files (x86)/7-Zip/7z.exe")
-    ]
-    for path in common_paths:
-        if path.exists():
-            return path
-
-    return None
-
-
-    #----------7zip----------
-    url = "https://www.7-zip.org/a/7z2500-x64.msi"
-    msi_name = "7z2500-x64.msi"
-    dl_path = dev_root / "downloads" / msi_name
-
-    cprint("[INFO] 7-Zip not found. Downloading MSI installer...", Fore.YELLOW)
-    if not download_with_progress(url, dl_path, url):
-        cprint("[ERROR] Failed to download 7-Zip installer.", Fore.RED)
-        return None
-
-    try:
-        cprint("[INFO] Running silent MSI install...", Fore.CYAN)
-        subprocess.run(["msiexec", "/i", str(dl_path), "/quiet", f"INSTALLDIR={sevenzip_dir}"], check=True)
-        if sevenzip_exe.exists():
-            cprint(f"[OK] 7-Zip installed to: {sevenzip_dir}", Fore.GREEN)
-            return sevenzip_exe
-    except Exception as e:
-        cprint(f"[ERROR] MSI install failed: {e}", Fore.RED)
-
-    return None
+        # Environment variables list
+        self.vars = [
+            ("XSE_CLIBDT_DEVROOT", "Dev Root Folder"),
+            ("XSE_TES5_GAME_PATH", "Skyrim Game Folder"),
+            ("XSE_TES5_MODS_PATH", "Skyrim Mods Folder"),
+            ("XSE_GIT_ROOT", "Git Root"),
+            ("XSE_MSVCTOOLS_ROOT", "MSVC Toolchain Root"),
+            ("XSE_XMAKE_ROOT", "Xmake Root"),
+            ("XSE_NINJA_ROOT", "Ninja Root"),
+            ("XSE_GITHUB_DESKTOP_PATH", "GitHub Desktop Path")
+        ]
+        self.edits = {}
+        self.rows = {}
+        
+        for var, label in self.vars:
+            # Create row for each variable
+            var_row = QHBoxLayout()
+            var_row.setSpacing(8)
+            var_row.setContentsMargins(0, 0, 0, 0)
+            
+            # Label with styling
+            var_label = QLabel(label)
+            var_label.setObjectName("var_label")
+            var_label.setFixedWidth(100)
+            var_row.addWidget(var_label)
+            
+            # Input field with styling
+            edit = QLineEdit(os.getenv(var) or "")
+            edit.setPlaceholderText(f"Enter {label.lower()}...")
+            edit.setObjectName("var_edit")
+            edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            edit.setMinimumWidth(200)
+            edit.setMinimumHeight(24)
+            edit.setMaximumHeight(32)
+            self.edits[var] = edit
+            var_row.addWidget(edit)
+            
+            # Folder button with styling
+            folder_btn = QPushButton("📁")
+            folder_btn.setProperty("btnType", "folder")
+            folder_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            folder_btn.setFixedWidth(60)
+            folder_btn.setMinimumHeight(24)
+            folder_btn.setMaximumHeight(32)
+            folder_btn.clicked.connect(lambda _, v=var: self.browse_folder(v))
+            var_row.addWidget(folder_btn)
+            
+            self.rows[var] = (var_row, var_label, edit, folder_btn)
+            env_layout.addLayout(var_row)
+        # Hide all but Dev Root Folder initially
+        for var, (var_row, var_label, edit, folder_btn) in self.rows.items():
+            if var != "XSE_CLIBDT_DEVROOT":
+                var_label.setVisible(False)
+                edit.setVisible(False)
+                folder_btn.setVisible(False)
+        # Add a placeholder for where the rest will go
+        self.extra_vars_widget = QWidget()
+        self.extra_vars_layout = QVBoxLayout(self.extra_vars_widget)
+        self.extra_vars_layout.setContentsMargins(0, 0, 0, 0)
+        self.extra_vars_layout.setSpacing(8)
+        env_layout.addWidget(self.extra_vars_widget)
+        
+        # Add spacing before status
+        env_layout.addSpacing(8)
+        
+        # Status label with styling - hidden by default
+        self.status = QLabel()
+        self.status.setObjectName("status_label")
+        self.status.setVisible(False)  # Hidden by default
+        self.status.setWordWrap(True)  # Allow text wrapping
+        env_layout.addWidget(self.status)
+        
+        # Add spacing before buttons
+        env_layout.addSpacing(8)
+        
+        # Button row with proper spacing
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        btn_row.setContentsMargins(0, 0, 0, 0)
+        
+        # Apply button
+        apply_btn = QPushButton("Apply Changes")
+        apply_btn.setProperty("btnType", "success")
+        apply_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        apply_btn.setFixedWidth(120)
+        apply_btn.setMinimumHeight(24)
+        apply_btn.setMaximumHeight(32)
+        apply_btn.clicked.connect(self.apply)
+        btn_row.addWidget(apply_btn)
+        
+        # Clear button
+        clear_btn = QPushButton("Clear Variables")
+        clear_btn.setProperty("btnType", "uninstall")
+        clear_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        clear_btn.setFixedWidth(120)
+        clear_btn.setMinimumHeight(24)
+        clear_btn.setMaximumHeight(32)
+        clear_btn.clicked.connect(self.clear_env_vars)
+        btn_row.addWidget(clear_btn)
+        
+        # Defaults button
+        defaults_btn = QPushButton("Use Defaults")
+        defaults_btn.setProperty("btnType", "secondary")
+        defaults_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        defaults_btn.setFixedWidth(120)
+        defaults_btn.setMinimumHeight(24)
+        defaults_btn.setMaximumHeight(32)
+        defaults_btn.clicked.connect(self.use_defaults)
+        btn_row.addWidget(defaults_btn)
+        
+        env_layout.addLayout(btn_row)
+        
+        layout.addWidget(env_section)
+        
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        
+        # Apply initial theme
+        self.apply_theme()
+        # Connect dev root edit to update visibility
+        self.edits["XSE_CLIBDT_DEVROOT"].textChanged.connect(self._on_dev_root_changed)
+        self._on_dev_root_changed(self.edits["XSE_CLIBDT_DEVROOT"].text())
     
+    def showEvent(self, event):
+        """Override showEvent to apply theme when panel becomes visible"""
+        super().showEvent(event)
+        # Ensure we're connected to the main window's theme manager
+        try:
+            main_window = self.window()
+            theme_manager = getattr(main_window, 'theme_manager', None)
+            if theme_manager:
+                self.set_theme_manager(theme_manager)
+        except Exception:
+            pass
+        # Apply theme when panel is shown
+        self.apply_theme()
+    
+    def set_theme_manager(self, theme_manager):
+        """Set the theme manager for this panel"""
+        self.theme_manager = theme_manager
+        if self.theme_manager:
+            self.theme_manager.theme_changed.connect(self.apply_theme)
+        self.apply_theme()
 
-def run_set_env_vars():
-    print()
-    cprint("[INFO] Enter M to return to main menu.", Fore.LIGHTBLACK_EX)
-    print()
+    def browse_folder(self, var):
+        dlg = QFileDialog(self)
+        dlg.setFileMode(QFileDialog.FileMode.Directory)
+        if dlg.exec():
+            folder = dlg.selectedFiles()[0]
+            self.edits[var].setText(folder)
+            # Get the label for this variable
+            var_label = next((label for v, label in self.vars if v == var), var)
+            status_text = f"📁 {var_label} set to: {folder}"
+            self.set_status(status_text, "info")
 
-    show_current_env_summary()
+    def browse_file(self, var):
+        dlg = QFileDialog(self)
+        dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dlg.setNameFilter("Executables (*.exe *.bat *.cmd *.sh);;All Files (*.*)")
+        if dlg.exec():
+            file_path = dlg.selectedFiles()[0]
+            self.edits[var].setText(file_path)
+            var_label = next((label for v, label in self.vars if v == var), var)
+            status_text = f"📝 {var_label} set to: {file_path}"
+            self.set_status(status_text, "info")
 
-    # === REQUIRED: DEV ROOT FOLDER ===
-    dev_root = None
-    current_dev = os.getenv("XSE_CLIBDT_DEVROOT")
-    if current_dev:
-        cprint(f"[INFO] Dev root is already set to: {current_dev}", Fore.LIGHTBLACK_EX)
-        answer = input("Do you want to keep it? (Y/N): ").strip().lower()
-        if answer == "m":
-            return
-        if answer == "y":
-            dev_root = Path(current_dev).resolve()
+    def apply(self):
+        class ModalStatusDialog(QDialog):
+            def __init__(self, parent=None, total=0):
+                super().__init__(parent)
+                self.setWindowTitle("Setting Environment Variables")
+                self.setModal(True)
+                self.setFixedSize(380, 120)
+                layout = QVBoxLayout(self)
+                self.label = QLabel("Applying environment variable changes...")
+                self.label.setWordWrap(True)
+                layout.addWidget(self.label)
+                self.setLayout(layout)
 
-    while not dev_root:
-        default_dev = r"C:\ClibDT"
-        cprint("Enter where you want to set or create your ClibDT dev root.", Fore.CYAN)
-        cprint(f"This path will contain all your tools and projects.\nDefault = {default_dev}", Fore.LIGHTBLACK_EX)
-        user_input = input(f"Press Enter to use default, or enter custom path: ").strip() or default_dev
-        if user_input.lower() == "m":
-            return
-        dev_root = Path(user_input).resolve()
-        dev_root.mkdir(parents=True, exist_ok=True)
-        setx("XSE_CLIBDT_DEVROOT", str(dev_root))
-        cprint(f"[OK] XSE_CLIBDT_DEVROOT set to: {dev_root}", Fore.GREEN)
+            def update_status(self, text):
+                self.label.setText(text)
+                QApplication.processEvents()
 
-    for sub in ["tools", "projects", "output", "downloads"]:
-        folder = dev_root / sub
-        if not folder.exists():
-            folder.mkdir(parents=True)
-            cprint(f"[OK] Created folder: {folder}", Fore.LIGHTGREEN_EX)
-    print()
+        errors = []
+        total = len(self.vars)
+        dlg = ModalStatusDialog(self, total=total)
+        dlg.show()
+        QApplication.processEvents()
 
-    # --- Copy bundled 7zip if not present ---
-    bundled_7zip = (Path(__file__).parent.parent / "tools" / "7zip").resolve()
-    target_7zip = dev_root / "tools" / "7zip"
-    if bundled_7zip.exists() and not target_7zip.exists():
-        import shutil
-        shutil.copytree(bundled_7zip, target_7zip)
-        cprint(f"[OK] 7-Zip installed to: {target_7zip}", Fore.GREEN)
+        for idx, (var, _) in enumerate(self.vars, 1):
+            value = self.edits[var].text().strip()
+            if value:
+                ok = setx(var, value, parent=self, show_popup=False)
+                if not ok:
+                    errors.append(var)
+            dlg.update_status(f"Setting {var} ({idx}/{total})...")
 
-    # === REQUIRED: GAME FOLDER PATH (skse_loader.exe) ===
-    current_game = os.getenv("XSE_TES5_GAME_PATH")
-    if current_game:
-        cprint(f"[INFO] Game path is already set to: {current_game}", Fore.LIGHTBLACK_EX)
-        answer = input("Do you want to keep it? (Y to keep / N to change): ").strip().lower()
-        if answer == "m":
-            return
-        if answer == "y":
-            game_path = Path(current_game).resolve()
+        dlg.update_status("All environment variables processed.")
+        QApplication.processEvents()
+        dlg.accept()
+
+        if errors:
+            status_text = f"❌ Failed to set: {', '.join(errors)}. Check permissions."
+            self.set_status(status_text, "error")
+            QMessageBox.critical(self, "Environment", f"Some environment variables could not be set: {', '.join(errors)}. Please check your permissions and try again.")
         else:
-            game_path = None
-    else:
-        game_path = None
-        print()
-    while not game_path:
-        cprint("Enter the full path to your Skyrim game folder (where skse64_loader.exe is):", Fore.CYAN)
-        cprint("Any path you enter will download SKSE to that folder if not detected.", Fore.LIGHTBLACK_EX)
-        suggested_path = dev_root / "tools" / "SKSE"
-        cprint(f"Default = {suggested_path}", Fore.LIGHTBLACK_EX)
-        user_input = input("Press Enter to use default, or enter custom path: ").strip()
-        if user_input.lower() == "m":
+            status_text = "✅ Environment variables updated successfully and are now available!"
+            self.set_status(status_text, "success")
+            QMessageBox.information(self, "Environment", "Environment variables updated successfully and are now available immediately!")
+
+    def clear_env_vars(self):
+        ENV_VARS = [
+            "XSE_CLIBDT_DEVROOT",
+            "XSE_TES5_GAME_PATH",
+            "XSE_TES5_MODS_PATH",
+            "XSE_GIT_ROOT",
+            "XSE_MSVCTOOLS_ROOT",
+            "XSE_XMAKE_ROOT",
+            "XSE_NINJA_ROOT",
+            "XSE_GITHUB_DESKTOP_PATH",
+        ]
+        for var in ENV_VARS:
+            if var in os.environ:
+                del os.environ[var]
+            if var in self.edits:
+                self.edits[var].setText("")
+        status_text = "🗑️ Environment variables cleared for this session. This does not affect system-wide variables."
+        self.set_status(status_text, "info")
+        QMessageBox.information(self, "Environment", "Environment variables cleared for this session. This does not affect system-wide variables.")
+
+    def use_defaults(self):
+        dev_root = r"C:\ClibDT"
+        self.edits["XSE_CLIBDT_DEVROOT"].setText(dev_root)
+        self.edits["XSE_TES5_GAME_PATH"].setText(str(Path(dev_root) / "tools" / "SKSE"))
+        self.edits["XSE_TES5_MODS_PATH"].setText(str(Path(dev_root) / "output"))
+        self.edits["XSE_GIT_ROOT"].setText(str(Path(dev_root) / "tools" / "Git"))
+        self.edits["XSE_MSVCTOOLS_ROOT"].setText(str(Path(dev_root) / "tools" / "BuildTools"))
+        self.edits["XSE_XMAKE_ROOT"].setText(str(Path(dev_root) / "tools" / "Xmake"))
+        self.edits["XSE_NINJA_ROOT"].setText(str(Path(dev_root) / "tools" / "Ninja"))
+        self.edits["XSE_GITHUB_DESKTOP_PATH"].setText(str(Path(dev_root) / "tools" / "GitHubDesktop"))
+        status_text = "⚙️ Default environment variables loaded. Click 'Apply Changes' to save them."
+        self.set_status(status_text, "info")
+    
+    def set_status(self, message, status_type="info"):
+        """Set status message with fancy styling and show/hide logic"""
+        if not message or not message.strip():
+            self.status.setVisible(False)
             return
-        game_path = Path(user_input or suggested_path).resolve()
-
-        skse_loader = None
-        for fname in ["skse_loader.exe", "skse64_loader.exe"]:
-            candidate = game_path / fname
-            if candidate.exists():
-                skse_loader = candidate
-                break
-
-        if skse_loader:
-            setx("XSE_TES5_GAME_PATH", str(game_path))
-            cprint(f"[OK] XSE_TES5_GAME_PATH set to: {game_path}", Fore.GREEN)
+        
+        # Show the status label
+        self.status.setVisible(True)
+        
+        # Apply fancy styling based on status type
+        if status_type == "success":
+            self.status.setStyleSheet("""
+                QLabel {
+                    color: #27ae60;
+                    background-color: rgba(39, 174, 96, 0.1);
+                    border: 1px solid #27ae60;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    margin: 4px 0px;
+                }
+            """)
+        elif status_type == "error":
+            self.status.setStyleSheet("""
+                QLabel {
+                    color: #e74c3c;
+                    background-color: rgba(231, 76, 60, 0.1);
+                    border: 1px solid #e74c3c;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    margin: 4px 0px;
+                }
+            """)
+        elif status_type == "warning":
+            self.status.setStyleSheet("""
+                QLabel {
+                    color: #f39c12;
+                    background-color: rgba(243, 156, 18, 0.1);
+                    border: 1px solid #f39c12;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    margin: 4px 0px;
+                }
+            """)
+        else:  # info
+            self.status.setStyleSheet("""
+                QLabel {
+                    color: #3498db;
+                    background-color: rgba(52, 152, 219, 0.1);
+                    border: 1px solid #3498db;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    margin: 4px 0px;
+                }
+            """)
+        
+        self.status.setText(message)
+    
+    def apply_theme(self):
+        """Apply theme colors to the panel"""
+        if self.theme_manager:
+            self.setStyleSheet(self.theme_manager.get_env_vars_style())
         else:
-            cprint("[ERROR] skse_loader.exe or skse64_loader.exe not found in the given path.", Fore.RED)
-            cprint("Would you like to download SKSE to that folder?", Fore.YELLOW)
-            dl = input("Download SKSE? (Y/N): ").strip().lower()
-            if dl != "y":
-                game_path = None
-                continue
-
-            print()
-            cprint("Which version of Skyrim are you mostly targeting?", Fore.CYAN)
-            cprint("[Note] CommonLibSSE-NG (VR) can support all versions.\n", Fore.LIGHTBLACK_EX)
-            print("1. Anniversary Edition: https://skse.silverlock.org/beta/skse64_2_02_06.7z")
-            print("2. Anniversary GOG   : https://skse.silverlock.org/beta/skse64_2_02_06_gog.7z")
-            print("3. Special Edition   : https://skse.silverlock.org/beta/skse64_2_00_20.7z")
-            print("4. Skyrim VR         : https://skse.silverlock.org/beta/sksevr_2_00_12.7z")
-            print()
-
-            skse_links = {
-                "1": ("skse64_2_02_06.7z", "https://skse.silverlock.org/beta/skse64_2_02_06.7z"),
-                "2": ("skse64_2_02_06_gog.7z", "https://skse.silverlock.org/beta/skse64_2_02_06_gog.7z"),
-                "3": ("skse64_2_00_20.7z", "https://skse.silverlock.org/beta/skse64_2_00_20.7z"),
-                "4": ("sksevr_2_00_12.7z", "https://skse.silverlock.org/beta/sksevr_2_00_12.7z")
-            }
-
-            choice = input("Enter option number (1-4): ").strip()
-            if choice not in skse_links:
-                cprint("[INFO] Invalid option selected. Please try again.", Fore.YELLOW)
-                game_path = None
-                continue
-
-            filename, url = skse_links[choice]
-            skse_archive = game_path / filename
-            game_path.mkdir(parents=True, exist_ok=True)
-
-            cprint(f"[INFO] Downloading {filename} to {game_path}", Fore.CYAN)
-            if not download_with_progress(url, skse_archive, url):
-                cprint("[ERROR] Download failed. Try again or download manually.", Fore.RED)
-                game_path = None
-                continue
-
-            sevenzip_exe = get_7zip_exe(dev_root)
-            if not sevenzip_exe:
-                cprint("[ERROR] 7-Zip not found in PATH or known locations. Please install 7-Zip and try again.", Fore.RED)
-                game_path = None
-                continue
-
+            # Fallback to basic theme if no theme manager
             try:
-                tmp_extract_dir = game_path / "_skse_tmp"
-                tmp_extract_dir.mkdir(parents=True, exist_ok=True)
+                from modules.theme_manager import ThemeManager
+                fallback_manager = ThemeManager()
+                self.setStyleSheet(fallback_manager.get_env_vars_style())
+            except Exception:
+                # Ultimate fallback with basic styling
+                self.setStyleSheet("""
+                    QWidget {
+                        background-color: #1e1e1e;
+                        color: #e0e0e0;
+                        font-family: 'Segoe UI', Arial, sans-serif;
+                    }
+                    QLabel {
+                        background-color: transparent;
+                        color: #e0e0e0;
+                        font-size: 11px;
+                    }
+                    QLineEdit {
+                        background-color: #2d2d2d;
+                        color: #e0e0e0;
+                        border: 2px solid #404040;
+                        border-radius: 4px;
+                        padding: 6px 8px;
+                        font-size: 11px;
+                    }
+                    QPushButton {
+                        background-color: #0078d4;
+                        color: #ffffff;
+                        border: 1px solid #0078d4;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                """)
 
-                subprocess.run([
-                    str(sevenzip_exe), "x", str(skse_archive),
-                    f"-o{tmp_extract_dir}", "-y", "-aoa"
-                ], check=True)
-                cprint("[OK] SKSE archive extracted to temp folder.", Fore.GREEN)
-
-                #----------Find SKSE subfolder----------
-                inner_skse_dir = None
-                for sub in tmp_extract_dir.iterdir():
-                    if sub.is_dir() and (sub / "skse64_loader.exe").exists():
-                        inner_skse_dir = sub
-                        break
-                    elif sub.is_dir() and (sub / "skse").is_dir():
-                        inner_skse_dir = sub / "skse"
-                        break
-
-                if inner_skse_dir and inner_skse_dir.exists():
-                    for item in inner_skse_dir.iterdir():
-                        dest = game_path / item.name
-                        if item.is_dir():
-                            shutil.copytree(item, dest, dirs_exist_ok=True)
-                        else:
-                            shutil.copy2(item, dest)
-                    cprint("[OK] SKSE files moved to SKSE or GAME folder.", Fore.GREEN)
-                else:
-                    cprint("[ERROR] Could not find valid SKSE subfolder in archive.", Fore.RED)
-                    game_path = None
-                    continue
-
-                #----------Cleanup----------
-                shutil.rmtree(tmp_extract_dir)
-                skse_archive.unlink(missing_ok=True)
-
-            except Exception as e:
-                cprint(f"[ERROR] Extraction failed: {e}", Fore.RED)
-                game_path = None
+    def _on_dev_root_changed(self, text):
+        dev_root = text.strip()
+        show_others = bool(dev_root)
+        for var, (var_row, var_label, edit, folder_btn) in self.rows.items():
+            if var == "XSE_CLIBDT_DEVROOT":
                 continue
+            var_label.setVisible(show_others)
+            edit.setVisible(show_others)
+            folder_btn.setVisible(show_others)
+            if show_others:
+                # Set default values based on dev_root
+                if var == "XSE_TES5_GAME_PATH":
+                    edit.setText(str(Path(dev_root) / "tools" / "SKSE"))
+                elif var == "XSE_TES5_MODS_PATH":
+                    edit.setText(str(Path(dev_root) / "output"))
+                elif var == "XSE_GIT_ROOT":
+                    edit.setText(str(Path(dev_root) / "tools" / "Git"))
+                elif var == "XSE_MSVCTOOLS_ROOT":
+                    edit.setText(str(Path(dev_root) / "tools" / "BuildTools"))
+                elif var == "XSE_XMAKE_ROOT":
+                    edit.setText(str(Path(dev_root) / "tools" / "Xmake"))
+                elif var == "XSE_NINJA_ROOT":
+                    edit.setText(str(Path(dev_root) / "tools" / "Ninja"))
+                elif var == "XSE_GITHUB_DESKTOP_PATH":
+                    edit.setText(str(Path(dev_root) / "tools" / "GitHubDesktop"))
+        self.extra_vars_widget.setVisible(bool(dev_root))
 
+class EnvSetupWizard(QWizard):
+    def __init__(self, parent=None, terminal=None):
+        super().__init__(parent)
+        self.terminal = terminal
+        self.setWindowTitle("Environment Setup Wizard")
+        self.resize(540, 340)
+        self.setStyleSheet('''
+            QWizard {
+                background: #23272e;
+            }
+            QWizard QLabel {
+                color: #e0e0e0;
+                font-size: 12px;
+                font-weight: normal;
+            }
+            QWizard QLineEdit {
+                background: #2c313c;
+                color: #e0e0e0;
+                border-radius: 6px;
+                padding: 6px;
+                font-size: 12px;
+                font-weight: normal;
+            }
+            QWizard QPushButton {
+                background: #3b4252;
+                color: #e0e0e0;
+                border-radius: 6px;
+                padding: 6px 16px;
+                font-size: 12px;
+                font-weight: normal;
+            }
+            QWizard QPushButton:hover {
+                background: #4c566a;
+            }
+            QWizard QFrame {
+                border: none;
+            }
+        ''')
+        self.addPage(DevRootPage(terminal=self.terminal))
+        self.addPage(GameFolderPage(terminal=self.terminal))
+        self.addPage(ModsFolderPage(terminal=self.terminal))
+        self.addPage(SummaryPage(terminal=self.terminal))
+        self.setOption(QWizard.WizardOption.NoBackButtonOnStartPage, True)
+        self.finished.connect(self.apply_env_vars)
 
-            #----------Recheck for loader after extraction----------
-            skse_loader = None
-            for fname in ["skse_loader.exe", "skse64_loader.exe"]:
-                found = list(game_path.rglob(fname))
-                if found:
-                    skse_loader = found[0]
-                    game_path = skse_loader.parent  #----------Set game_path to correct folder----------
-                    break
-
-            if skse_loader:
-                setx("XSE_TES5_GAME_PATH", str(game_path))
-                cprint(f"[OK] XSE_TES5_GAME_PATH set to: {game_path}", Fore.GREEN)
-            else:
-                cprint("[ERROR] skse_loader.exe still not found after extraction.", Fore.RED)
-                game_path = None
-            print()
-
-    #----------MODS FOLDER PATH----------
-    current_mods = os.getenv("XSE_TES5_MODS_PATH")
-    if current_mods:
-        cprint(f"[INFO] Mods path is already set to: {current_mods}", Fore.LIGHTBLACK_EX)
-        answer = input("Do you want to keep it? (Y to keep / N to change): ").strip().lower()
-        if answer == "m":
-            return
-        if answer == "y":
-            mods_path = Path(current_mods).resolve()
+    def apply_env_vars(self):
+        dev_root = self.field('dev_root')
+        game_folder = self.field('game_folder')
+        mods_folder = self.field('mods_folder')
+        ok1 = setx("XSE_CLIBDT_DEVROOT", dev_root, parent=None, terminal=self.terminal)
+        ok2 = setx("XSE_TES5_GAME_PATH", game_folder, parent=None, terminal=self.terminal)
+        ok3 = setx("XSE_TES5_MODS_PATH", mods_folder, parent=None, terminal=self.terminal)
+        if ok1 and ok2 and ok3:
+            QMessageBox.information(self, "Environment", "Environment variables set successfully and are now available immediately!")
         else:
-            mods_path = None
-    else:
-        mods_path = None
+            QMessageBox.critical(self, "Environment", "One or more environment variables could not be set. Please check your permissions and try again.")
 
-        if not mods_path:
-            default_mods = dev_root / "output"
-            cprint("Enter the full path to your Skyrim mods folder (MO2 and Vortex supported):", Fore.CYAN)
-            cprint(f"This is where your compiled projects will be installed.\nDefault = {default_mods}", Fore.LIGHTBLACK_EX)
-            user_input = input(f"Press Enter to use default, or enter custom path: ").strip()
-            if user_input.lower() == "m":
-                return
-            mods_path = Path(user_input or default_mods).resolve()
-            mods_path.mkdir(parents=True, exist_ok=True)
-            setx("XSE_TES5_MODS_PATH", str(mods_path))
-            cprint(f"[OK] XSE_TES5_MODS_PATH set to: {mods_path}", Fore.GREEN)
+class DevRootPage(QWizardPage):
+    def __init__(self, terminal=None):
+        super().__init__()
+        self.terminal = terminal
+        self.setTitle("<b>Dev Root Folder</b>")
+        self.setSubTitle("<span style='color:#b0b0b0; font-size: 12px; font-weight: normal;'>This will contain all your tools and projects.</span>")
+        layout = QVBoxLayout()
+        label = QLabel("Select your ClibDT dev root folder.")
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(label)
+        self.dev_root_edit = QLineEdit(os.getenv("XSE_CLIBDT_DEVROOT", r"C:\ClibDT"))
+        self.registerField('dev_root*', self.dev_root_edit)
+        layout.addWidget(self.dev_root_edit)
+        browse = QPushButton("Browse")
+        browse.setIcon(QIcon.fromTheme("folder"))
+        browse.clicked.connect(self.browse_folder)
+        layout.addWidget(browse)
+        layout.addSpacing(16)
+        self.setLayout(layout)
+    
+    def browse_folder(self):
+        dlg = QFileDialog(self)
+        dlg.setFileMode(QFileDialog.FileMode.Directory)
+        if dlg.exec():
+            folder = dlg.selectedFiles()[0]
+            self.dev_root_edit.setText(folder)
 
-    #----------FINAL SUMMARY AND EXIT----------
-    print()
-    cprint("Required environment variable setup complete!", Fore.MAGENTA)
-    show_current_env_summary()
+    def validatePage(self):
+        path = self.dev_root_edit.text().strip()
+        if not path:
+            QMessageBox.warning(self, "Validation Error", "Dev root folder cannot be empty.")
+            return False
+        try:
+            p = Path(path)
+            if not p.exists():
+                p.mkdir(parents=True, exist_ok=True)
+            if not os.access(str(p), os.W_OK):
+                QMessageBox.warning(self, "Validation Error", f"Cannot write to {p}. Please choose a writable folder.")
+                return False
+        except Exception as e:
+            QMessageBox.warning(self, "Validation Error", f"Invalid folder: {e}")
+            return False
+        return True
 
-    cprint("You will need to restart ClibDT for all changes to take effect.", Fore.YELLOW)
-    answer = input("Restart ClibDT now? (Y/N): ").strip().lower()
-    if answer == "y":
-        restart_clibdt()
+class GameFolderPage(QWizardPage):
+    def __init__(self, terminal=None):
+        super().__init__()
+        self.terminal = terminal
+        self.setTitle("<b>Skyrim Game Folder</b>")
+        self.setSubTitle("<span style='color:#b0b0b0; font-size: 12px; font-weight: normal;'>Where skse64_loader.exe is or will be.</span>")
+        layout = QVBoxLayout()
+        label = QLabel("Select your Skyrim game folder.")
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(label)
+        default_game = str(Path(os.getenv("XSE_CLIBDT_DEVROOT", r"C:\ClibDT")) / "tools" / "SKSE")
+        self.game_folder_edit = QLineEdit(os.getenv("XSE_TES5_GAME_PATH", default_game))
+        self.registerField('game_folder*', self.game_folder_edit)
+        layout.addWidget(self.game_folder_edit)
+        browse = QPushButton("Browse")
+        browse.setIcon(QIcon.fromTheme("folder"))
+        browse.clicked.connect(self.browse_folder)
+        layout.addWidget(browse)
+        layout.addSpacing(16)
+        self.setLayout(layout)
+    
+    def browse_folder(self):
+        dlg = QFileDialog(self)
+        dlg.setFileMode(QFileDialog.FileMode.Directory)
+        if dlg.exec():
+            folder = dlg.selectedFiles()[0]
+            self.game_folder_edit.setText(folder)
+    
+    def validatePage(self):
+        path = self.game_folder_edit.text().strip()
+        if not path:
+            QMessageBox.warning(self, "Validation Error", "Game folder cannot be empty.")
+            return False
+        try:
+            p = Path(path)
+            if not p.exists():
+                p.mkdir(parents=True, exist_ok=True)
+            if not os.access(str(p), os.W_OK):
+                QMessageBox.warning(self, "Validation Error", f"Cannot write to {p}. Please choose a writable folder.")
+                return False
+        except Exception as e:
+            QMessageBox.warning(self, "Validation Error", f"Invalid folder: {e}")
+            return False
+        return True
+
+class ModsFolderPage(QWizardPage):
+    def __init__(self, terminal=None):
+        super().__init__()
+        self.terminal = terminal
+        self.setTitle("<b>Skyrim Mods Folder</b>")
+        self.setSubTitle("<span style='color:#b0b0b0; font-size: 12px; font-weight: normal;'>Where compiled projects will be installed.</span>")
+        layout = QVBoxLayout()
+        label = QLabel("Select your Skyrim mods folder.")
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(label)
+        default_mods = str(Path(os.getenv("XSE_CLIBDT_DEVROOT", r"C:\ClibDT")) / "output")
+        self.mods_folder_edit = QLineEdit(os.getenv("XSE_TES5_MODS_PATH", default_mods))
+        self.registerField('mods_folder*', self.mods_folder_edit)
+        layout.addWidget(self.mods_folder_edit)
+        browse = QPushButton("Browse")
+        browse.setIcon(QIcon.fromTheme("folder"))
+        browse.clicked.connect(self.browse_folder)
+        layout.addWidget(browse)
+        layout.addSpacing(16)
+        self.setLayout(layout)
+    
+    def browse_folder(self):
+        dlg = QFileDialog(self)
+        dlg.setFileMode(QFileDialog.FileMode.Directory)
+        if dlg.exec():
+            folder = dlg.selectedFiles()[0]
+            self.mods_folder_edit.setText(folder)
+    
+    def validatePage(self):
+        path = self.mods_folder_edit.text().strip()
+        if not path:
+            QMessageBox.warning(self, "Validation Error", "Mods folder cannot be empty.")
+            return False
+        try:
+            p = Path(path)
+            if not p.exists():
+                p.mkdir(parents=True, exist_ok=True)
+            if not os.access(str(p), os.W_OK):
+                QMessageBox.warning(self, "Validation Error", f"Cannot write to {p}. Please choose a writable folder.")
+                return False
+        except Exception as e:
+            QMessageBox.warning(self, "Validation Error", f"Invalid folder: {e}")
+            return False
+        return True
+
+class SummaryPage(QWizardPage):
+    def __init__(self, terminal=None):
+        super().__init__()
+        self.terminal = terminal
+        self.setTitle("<b>Summary</b>")
+        layout = QVBoxLayout()
+        self.summary_label = QLabel()
+        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.summary_label.setStyleSheet("font-size: 12px; color: #a3be8c; padding: 12px; font-weight: normal;")
+        layout.addWidget(self.summary_label)
+        self.setLayout(layout)
+    
+    def initializePage(self):
+        dev_root = self.field('dev_root')
+        game_folder = self.field('game_folder')
+        mods_folder = self.field('mods_folder')
+        summary = f"<b>Dev Root:</b> {dev_root}<br><b>Game Folder:</b> {game_folder}<br><b>Mods Folder:</b> {mods_folder}"
+        self.summary_label.setText(summary)
+
+class DevRootOnlyWizard(QWizard):
+    def __init__(self, parent=None, terminal=None):
+        super().__init__(parent)
+        self.terminal = terminal
+        self.setWindowTitle("Set Dev Root - ClibDT")
+        self.resize(540, 200)
+        self.setStyleSheet('''
+            QWizard {
+                background: #23272e;
+            }
+            QWizard QLabel {
+                color: #e0e0e0;
+                font-size: 12px;
+                font-weight: normal;
+            }
+            QWizard QLineEdit {
+                background: #2c313c;
+                color: #e0e0e0;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 12px;
+                font-weight: normal;
+            }
+            QWizard QPushButton {
+                background: #3b4252;
+                color: #e0e0e0;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 12px;
+                font-weight: normal;
+            }
+            QWizard QPushButton:hover {
+                background: #4c566a;
+            }
+            QWizard QFrame {
+                border: none;
+            }
+        ''')
+        self.addPage(DevRootFirstPage(terminal=self.terminal))
+        self.setOption(QWizard.WizardOption.NoBackButtonOnStartPage, True)
+        self.finished.connect(self.apply_dev_root)
+
+    def apply_dev_root(self):
+        dev_root = self.field('dev_root')
+        setx("XSE_CLIBDT_DEVROOT", dev_root, parent=self, terminal=self.terminal)
+        QMessageBox.information(self, "Environment", "Dev root is set successfully and is now available immediately!")
+
+class DevRootFirstPage(QWizardPage):
+    def __init__(self, terminal=None):
+        super().__init__()
+        self.terminal = terminal
+        self.setTitle("<b>Set Your Dev Root Folder</b>")
+        self.setSubTitle("<span style='color:#b0b0b0; font-size: 12px; font-weight: normal;'>This is the foundation for all ClibDT tools and projects.\nYou must set this first.</span>")
+        layout = QVBoxLayout()
+        label = QLabel("Choose your ClibDT dev root folder:")
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(label)
+        self.dev_root_edit = QLineEdit(os.getenv("XSE_CLIBDT_DEVROOT", r"C:\ClibDT"))
+        self.registerField('dev_root*', self.dev_root_edit)
+        layout.addWidget(self.dev_root_edit)
+        browse = QPushButton("Browse Folder")
+        browse.setIcon(QIcon.fromTheme("folder"))
+        browse.clicked.connect(self.browse_folder)
+        layout.addWidget(browse)
+        layout.addSpacing(16)
+        self.setLayout(layout)
+    
+    def browse_folder(self):
+        dlg = QFileDialog(self)
+        dlg.setFileMode(QFileDialog.FileMode.Directory)
+        if dlg.exec():
+            folder = dlg.selectedFiles()[0]
+            self.dev_root_edit.setText(folder)
+    
+    def validatePage(self):
+        path = self.dev_root_edit.text().strip()
+        if not path:
+            QMessageBox.warning(self, "Validation Error", "Dev root folder cannot be empty.")
+            return False
+        try:
+            p = Path(path)
+            if not p.exists():
+                p.mkdir(parents=True, exist_ok=True)
+            if not os.access(str(p), os.W_OK):
+                QMessageBox.warning(self, "Validation Error", f"Cannot write to {p}. Please choose a writable folder.")
+                return False
+        except Exception as e:
+            QMessageBox.warning(self, "Validation Error", f"Invalid folder: {e}")
+            return False
+        return True
+
+def show_env_setup(parent=None, terminal=None):
+    dev_root = os.getenv("XSE_CLIBDT_DEVROOT")
+    if not dev_root or not Path(dev_root).exists():
+        wizard = DevRootOnlyWizard(parent=parent, terminal=terminal)
+        wizard.exec()
+        return False
+    return True

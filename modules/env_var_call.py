@@ -63,7 +63,8 @@ def set_required_env_vars_interactively():
         # Set for persistent registry (Windows only)
         import subprocess
         try:
-            subprocess.run(["setx", var, path], shell=True)
+            creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+            subprocess.run(["setx", var, path], shell=True, creationflags=creationflags)
             cprint(f"[OK] Set {var} -> {path}", Fore.GREEN)
         except Exception as e:
             cprint(f"[ERROR] Failed to set {var}: {e}", Fore.RED)
